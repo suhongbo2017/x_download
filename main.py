@@ -1,10 +1,16 @@
 import flet as ft
-# yt_dlp is imported lazily to prevent Android startup crashes
+# Now fully decoupled from yt_dlp! This acts strictly as a lightweight UI client.
 import urllib.request
 import os
 import threading
 import urllib.parse
+import json
 import traceback
+
+# === 填入你的阿里云 IP 地址 ===
+# 请将下面的 x.x.x.x 替换为你真实的阿里云公网 IP
+SERVER_IP = "x.x.x.x"
+API_URL = f"http://{SERVER_IP}:8080/api/parse"
 
 def main(page: ft.Page):
     try:
@@ -41,7 +47,7 @@ def main(page: ft.Page):
             progress_bar.visible = True
             progress_bar.value = None # indeterminate
             progress_text.visible = True
-            progress_text.value = "Extracting video info..."
+            progress_text.value = "Connecting to backend server..."
             page.update()
             
             # run in thread to avoid blocking UI
@@ -49,45 +55,34 @@ def main(page: ft.Page):
 
         def extract_info():
             try:
-                import yt_dlp
-                ydl_opts = {
-                    'format': 'best',
-                    'quiet': True,
-                    'noplaylist': True,
-                }
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    info = ydl.extract_info(url_input.value, download=False)
+                if SERVER_IP == "x.x.x.x":
+                    raise Exception("Please configure your Aliyun IP in main.py first!")
                     
-                    # try to find the best direct mp4/http format first
-                    direct_url = None
-                    if 'formats' in info and len(info['formats']) > 0:
-                        direct_formats = [
-                            f for f in info['formats'] 
-                            if f.get('ext') == 'mp4' and f.get('protocol', '').startswith('http') and 'm3u8' not in f.get('protocol', '')
-                        ]
-                        if direct_formats:
-                            direct_url = direct_formats[-1].get('url')
-                        else:
-                            direct_url = info['formats'][-1].get('url')
-                    elif 'url' in info:
-                        direct_url = info['url']
-                    elif 'entries' in info and len(info['entries']) > 0:
-                        direct_url = info['entries'][0].get('url')
-                        
-                    if not direct_url:
-                        raise Exception("Could not extract direct video url")
+                req_data = json.dumps({"url": url_input.value}).encode('utf-8')
+                req = urllib.request.Request(API_URL, data=req_data, headers={'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0'})
+                
+                with urllib.request.urlopen(req, timeout=30) as response:
+                    # response should be the JSON structure defined in server.py
+                    raw_data = response.read()
+                    print("RAW DATA:", raw_data)
+                    result = json.loads(raw_data.decode('utf-8'))
                     
-                    video_info["url"] = direct_url
-                    video_info["title"] = info.get('title', 'x_video')
+                    if not result.get("success"):
+                        raise Exception("Server failed to parse the video.")
+                    
+                    data = result.get("data", {})
+                    
+                    video_info["url"] = data.get("url")
+                    video_info["title"] = data.get("title", 'x_video')
                     
                     # update UI
-                    video_thumbnail.src = info.get('thumbnail', '')
+                    video_thumbnail.src = data.get('thumbnail', '')
                     video_title.value = f"Title: {video_info['title']}"
                     
-                    quality = info.get('format_note', 'best')
+                    quality = data.get('quality', 'best')
                     video_quality.value = f"Quality: {quality}"
                     
-                    dur = info.get('duration', 0)
+                    dur = data.get('duration', 0)
                     video_duration.value = f"Duration: {dur}s"
                     
                     video_card.controls = [
@@ -110,7 +105,7 @@ def main(page: ft.Page):
                 progress_bar.visible = False
                 progress_text.visible = False
                 parse_btn.disabled = False
-                page.snack_bar = ft.SnackBar(ft.Text(f"Error parsing: {str(ex)}"))
+                page.snack_bar = ft.SnackBar(ft.Text(f"Error: {str(ex)}"))
                 page.snack_bar.open = True
                 page.update()
 
@@ -126,7 +121,12 @@ def main(page: ft.Page):
 
         def download_video():
             try:
+                # We do NOT download the video directly from the internet anymore!
+                # We download it via the proxy_download endpoint on the Aliyun server to bypass any headers/CORS blocks!
                 video_url = video_info["url"]
+                # The server's proxy_download takes video_url and title
+                # Wait, our file download code here downloads natively. Let's just download directly from video_url.
+                # Actually, standard MP4 links download natively perfectly via Flet's pure python request without CORS issues (mobile isn't a browser sandboxed for CORS).
                 title = video_info["title"]
                 safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).rstrip()
                 if not safe_title:
