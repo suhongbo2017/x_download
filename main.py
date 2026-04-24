@@ -9,7 +9,7 @@ import traceback
 
 # === 填入你的阿里云 IP 地址 ===
 # 请将下面的 x.x.x.x 替换为你真实的阿里云公网 IP
-SERVER_IP = "x.x.x.x"
+SERVER_IP = "43.119.35.237"
 API_URL = f"http://{SERVER_IP}:8866/api/parse"
 
 def main(page: ft.Page):
