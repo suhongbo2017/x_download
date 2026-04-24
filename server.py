@@ -115,4 +115,4 @@ def proxy_download(video_url: str, title: str = "x_video"):
         raise HTTPException(status_code=400, detail=f"Download failed: {str(e)}")
 
 if __name__ == "__main__":
-    uvicorn.run("server:app", host="0.0.0.0", port=8080, reload=True)
+    uvicorn.run("server:app", host="0.0.0.0", port=8866, reload=True)
