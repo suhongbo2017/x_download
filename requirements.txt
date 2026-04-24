@@ -1,2 +1,4 @@
-flet>=0.21.0
+fastapi
+uvicorn
 yt-dlp>=2024.0.0
+flet>=0.21.0
