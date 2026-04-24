@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>X Video Downloader</title>
+    <!-- 引入 Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <!-- 引入 Font Awesome 图标库 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --text-main: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent: #60a5fa;
+            --error: #ef4444;
+            --success: #10b981;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* 动态背景修饰球 */
+        .bg-shape {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            z-index: 0;
+        }
+        .shape1 {
+            width: 400px;
+            height: 400px;
+            background: rgba(59, 130, 246, 0.3);
+            top: -100px;
+            left: -100px;
+            animation: float 8s ease-in-out infinite;
+        }
+        .shape2 {
+            width: 300px;
+            height: 300px;
+            background: rgba(139, 92, 246, 0.3);
+            bottom: -50px;
+            right: -50px;
+            animation: float 10s ease-in-out infinite reverse;
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(30px) scale(1.05); }
+            100% { transform: translateY(0) scale(1); }
+        }
+
+        /* 主容器 */
+        .downloader-card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 40px;
+            width: 100%;
+            max-width: 600px;
+            z-index: 1;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            transition: transform 0.3s ease;
+        }
+
+        .downloader-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header .icon {
+            font-size: 3rem;
+            color: #1DA1F2; /* Twitter Blue */
+            margin-bottom: 15px;
+            animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .header h1 {
+            font-weight: 800;
+            font-size: 2rem;
+            margin-bottom: 10px;
+            background: linear-gradient(to right, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            font-size: 1rem;
+        }
+
+        /* 输入区 */
+        .input-group {
+            position: relative;
+            margin-bottom: 25px;
+        }
+
+        .input-group i {
+            position: absolute;
+            left: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+            transition: color 0.3s ease;
+        }
+
+        .url-input {
+            width: 100%;
+            padding: 16px 20px 16px 45px;
+            background: rgba(0, 0, 0, 0.2);
+            border: 2px solid var(--glass-border);
+            border-radius: 12px;
+            color: var(--text-main);
+            font-size: 1rem;
+            font-family: inherit;
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        .url-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+        }
+
+        .url-input:focus + i {
+            color: var(--primary);
+        }
+
+        /* 按钮 */
+        .download-btn {
+            width: 100%;
+            padding: 16px;
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .download-btn::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: rgba(255, 255, 255, 0.1);
+            transform: rotate(45deg);
+            transition: transform 0.6s ease;
+            pointer-events: none;
+        }
+
+        .download-btn:hover {
+            background: var(--primary-hover);
+            transform: scale(1.02);
+            box-shadow: 0 10px 20px -10px var(--primary);
+        }
+
+        .download-btn:hover::after {
+            transform: rotate(45deg) translate(50%, 50%);
+        }
+
+        .download-btn:active {
+            transform: scale(0.98);
+        }
+
+        .download-btn i {
+            transition: transform 0.3s ease;
+        }
+
+        .download-btn:hover i {
+            transform: translateY(2px);
+        }
+
+        /* 状态提示区 */
+        .status-container {
+            margin-top: 25px;
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+            font-size: 0.95rem;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        .status-container.show {
+            display: block;
+            animation: fadeIn 0.5s forwards;
+        }
+
+        @keyframes fadeIn {
+            to { opacity: 1; }
+        }
+
+        .status-loading {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            color: var(--accent);
+        }
+
+        .status-success {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+
+        .status-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: var(--error);
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: var(--accent);
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* 下载结果展示 */
+        .result-card {
+            margin-top: 25px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 20px;
+            display: none;
+            flex-direction: column;
+            gap: 15px;
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        .result-card.show {
+            display: flex;
+            animation: slideUp 0.5s forwards;
+        }
+
+        @keyframes slideUp {
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .video-thumbnail {
+            width: 100%;
+            height: 180px;
+            background-color: #000;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .video-thumbnail img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.7;
+        }
+
+        .video-thumbnail::after {
+            content: '\f144';
+            font-family: 'Font Awesome 6 Free';
+            font-weight: 900;
+            position: absolute;
+            font-size: 3rem;
+            color: rgba(255, 255, 255, 0.8);
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        .video-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .video-meta {
+            flex: 1;
+        }
+
+        .video-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: var(--text-main);
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .video-quality {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .action-btns {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-small {
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-decoration: none;
+            color: #fff;
+            transition: all 0.2s;
+            cursor: pointer;
+            border: none;
+        }
+
+        .btn-hq {
+            background: var(--success);
+        }
+        .btn-hq:hover {
+            background: #0ea5e9;
+            box-shadow: 0 4px 12px rgba(10, 165, 233, 0.3);
+        }
+
+        /* 移动端适配 */
+        @media (max-width: 600px) {
+            .downloader-card {
+                padding: 30px 20px;
+            }
+            .header h1 {
+                font-size: 1.6rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 背景流光 -->
+    <div class="bg-shape shape1"></div>
+    <div class="bg-shape shape2"></div>
+
+    <div class="downloader-card">
+        <div class="header">
+            <i class="icon fa-brands fa-x-twitter"></i>
+            <h1>X (Twitter) 视频下载</h1>
+            <p>粘贴推文链接，即刻获取高清视频</p>
+        </div>
+
+        <div class="input-group">
+            <input type="text" id="urlInput" class="url-input" placeholder="输入推文链接 (例如: https://x.com/.../status/...)" autocomplete="off">
+            <i class="fa-solid fa-link"></i>
+        </div>
+
+        <button id="downloadBtn" class="download-btn">
+            <i class="fa-solid fa-download"></i> 解析视频
+        </button>
+
+        <div id="statusBox" class="status-container">
+            <span id="statusIcon"></span>
+            <span id="statusText">正在解析中，请稍候...</span>
+            <div id="backendDisclaimer" style="margin-top: 10px; font-size: 0.8rem; color: #cbd5e1; display: none;">
+               <i class="fa-solid fa-circle-info"></i> 注意: 前端直接下载推特视频受跨域(CORS)限制。此演示中我们模拟了解析过程。若需真实可用，请在后端搭建爬虫/API (如使用 yt-dlp)。
+            </div>
+        </div>
+
+        <!-- 模拟的结果展示区 -->
+        <div id="resultCard" class="result-card">
+            <div class="video-thumbnail">
+                <img src="https://images.unsplash.com/photo-1611162617474-5b21e879e113?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80" alt="Video Placeholder">
+            </div>
+            <div class="video-info">
+                <div class="video-meta">
+                    <div class="video-title">示例推文视频 - 震撼风景</div>
+                    <div class="video-quality">可用的最高画质: 720p (MP4)</div>
+                </div>
+                <div class="action-btns">
+                    <button class="btn-small btn-hq" onclick="triggerDownload()">下载视频</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const urlInput = document.getElementById('urlInput');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const statusBox = document.getElementById('statusBox');
+        const statusIcon = document.getElementById('statusIcon');
+        const statusText = document.getElementById('statusText');
+        const resultCard = document.getElementById('resultCard');
+        const backendDisclaimer = document.getElementById('backendDisclaimer');
+
+        // 正则验证是不是X(twitter)链接
+        const validUrlPattern = /^https?:\/\/(www\.)?(twitter\.com|x\.com)\/.+\/status\/\d+/i;
+
+        downloadBtn.addEventListener('click', async () => {
+            const url = urlInput.value.trim();
+
+            // 重置状态
+            resultCard.classList.remove('show');
+            backendDisclaimer.style.display = 'none';
+
+            if (!url) {
+                showStatus('请输入链接！', 'error');
+                return;
+            }
+
+            if (!validUrlPattern.test(url)) {
+                showStatus('请输入有效的 X (Twitter) 推文链接！', 'error');
+                return;
+            }
+
+            // 加载状态
+            showStatus('正在连接服务器解析视频...', 'loading');
+            downloadBtn.disabled = true;
+            downloadBtn.style.opacity = '0.7';
+
+            try {
+                const response = await fetch('/api/parse', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: url })
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok && result.success) {
+                    showStatus('解析成功！', 'success');
+                    
+                    const data = result.data;
+                    document.querySelector('.video-title').textContent = data.title;
+                    document.querySelector('.video-quality').textContent = `最高画质: ${data.quality}`;
+                    const img = document.querySelector('.video-thumbnail img');
+                    if (data.thumbnail) {
+                        img.src = data.thumbnail;
+                    }
+
+                    // 设置下载按钮点击事件
+                    const hqBtn = document.querySelector('.btn-hq');
+                    hqBtn.onclick = () => {
+                        // 构建代理下载链接，强制触发浏览器的下载保存提示
+                        const downloadUrl = `/api/download?video_url=${encodeURIComponent(data.url)}&title=${encodeURIComponent(data.title)}`;
+                        window.location.href = downloadUrl;
+                    };
+                    
+                    // 显示结果卡片
+                    setTimeout(() => {
+                        statusBox.classList.remove('show');
+                        resultCard.classList.add('show');
+                    }, 500);
+                } else {
+                    showStatus(result.detail || '解析失败，请检查链接或稍后再试。', 'error');
+                }
+            } catch (error) {
+                showStatus('网络请求失败：' + error.message, 'error');
+            } finally {
+                downloadBtn.disabled = false;
+                downloadBtn.style.opacity = '1';
+            }
+        });
+
+        // 回车键触发
+        urlInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                downloadBtn.click();
+            }
+        });
+
+        function showStatus(message, type) {
+            statusBox.className = 'status-container show status-' + type;
+            statusText.textContent = message;
+            
+            if (type === 'loading') {
+                statusIcon.innerHTML = '<div class="spinner"></div>';
+            } else if (type === 'success') {
+                statusIcon.innerHTML = '<i class="fa-solid fa-check-circle" style="margin-right: 5px;"></i>';
+            } else if (type === 'error') {
+                statusIcon.innerHTML = '<i class="fa-solid fa-triangle-exclamation" style="margin-right: 5px;"></i>';
+            }
+        }
+
+        function triggerDownload() {
+            alert('这是一个演示页面！由于浏览器的跨域和推特API限制，真实的下载需要由后端服务来抓取和提供文件。');
+        }
+    </script>
+</body>
+</html>
