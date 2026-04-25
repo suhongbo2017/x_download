@@ -13,11 +13,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Build Webview APK
-        uses: tony-98/webview-to-apk@main
+        uses: itaimaz/webview-to-apk@master
         with:
           url: 'http://43.119.35.237:8866'
-          app-name: 'X-HUB'
-          icon: 'https://abs.twimg.com/errors/logo46x38.png'
+          name: 'X-HUB'
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
