@@ -50,6 +50,7 @@ async def parse_video(request: Request):
     # We use empty user-agent or let yt-dlp handle it.
     # X (Twitter) extraction usually works with yt-dlp but can sometimes require cookies. 
     # For a basic prototype, standard extraction is used.
+    cookie_path = os.path.join(BASE_DIR, "xcookies.txt")
     ydl_opts = {
         'format': 'best',
         'quiet': True,
@@ -64,6 +65,8 @@ async def parse_video(request: Request):
         'nocheckcertificate': True,
         'ignore_no_formats_error': True,
     }
+    if os.path.exists(cookie_path):
+        ydl_opts['cookiefile'] = cookie_path
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -153,6 +156,10 @@ def proxy_download(background_tasks: BackgroundTasks, video_url: str, title: str
                 'quiet': True,
                 'merge_output_format': 'mp4',
             }
+            
+            cookie_path = os.path.join(BASE_DIR, "xcookies.txt")
+            if os.path.exists(cookie_path):
+                ydl_opts['cookiefile'] = cookie_path
             
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([video_url])
