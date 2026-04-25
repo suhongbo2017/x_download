@@ -17,10 +17,15 @@ app.add_middleware(
 
 @app.get("/")
 async def root():
-    index_path = os.path.join(os.path.dirname(__file__), "index.html")
-    if os.path.exists(index_path):
-        return FileResponse(index_path)
-    return JSONResponse(status_code=404, content={"message": "index.html not found"})
+    return FileResponse("index.html")
+
+@app.get("/manifest.json")
+async def get_manifest():
+    return FileResponse("manifest.json")
+
+@app.get("/sw.js")
+async def get_sw():
+    return FileResponse("sw.js", media_type="application/javascript")
 
 @app.post("/api/parse")
 async def parse_video(request: Request):
@@ -67,6 +72,10 @@ async def parse_video(request: Request):
                 video_url = info['url']
             elif 'entries' in info and len(info['entries']) > 0:
                 video_url = info['entries'][0].get('url')
+            
+            if not video_url:
+                # Fallback: check if 'url' is directly in info
+                video_url = info.get('url') or info.get('webpage_url')
             
             if not video_url:
                 raise HTTPException(status_code=400, detail="Could not extract video url")
