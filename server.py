@@ -15,17 +15,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 @app.get("/")
 async def root():
-    return FileResponse("index.html")
+    return FileResponse(os.path.join(BASE_DIR, "index.html"))
 
 @app.get("/manifest.json")
 async def get_manifest():
-    return FileResponse("manifest.json")
+    path = os.path.join(BASE_DIR, "manifest.json")
+    if os.path.exists(path):
+        return FileResponse(path)
+    return JSONResponse(status_code=404, content={"detail": "manifest.json not found"})
 
 @app.get("/sw.js")
 async def get_sw():
-    return FileResponse("sw.js", media_type="application/javascript")
+    path = os.path.join(BASE_DIR, "sw.js")
+    if os.path.exists(path):
+        return FileResponse(path, media_type="application/javascript")
+    return JSONResponse(status_code=404, content={"detail": "sw.js not found"})
 
 @app.post("/api/parse")
 async def parse_video(request: Request):
