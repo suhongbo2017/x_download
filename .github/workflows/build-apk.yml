@@ -1,4 +1,4 @@
-name: Build Flet APK
+name: Build Slim APK
 
 on:
   push:
@@ -12,32 +12,15 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Build Webview APK
+        uses: tony-98/webview-to-apk@main
         with:
-          python-version: '3.11'
-          
-      - name: Install Python Tools
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-
-      - name: Setup Java
-        uses: actions/setup-java@v3
-        with:
-          distribution: 'zulu'
-          java-version: '17'
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: 'stable'
-
-      - name: Build APK with Flet
-        run: flet build apk
+          url: 'http://43.119.35.237:8866'
+          app-name: 'X-HUB'
+          icon: 'https://abs.twimg.com/errors/logo46x38.png'
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: X-Video-Downloader-APK
-          path: build/apk/**/*.apk
+          name: X-HUB-Slim-APK
+          path: ./*.apk
