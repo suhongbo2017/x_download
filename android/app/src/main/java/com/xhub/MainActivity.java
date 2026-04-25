@@ -1,12 +1,12 @@
 package com.xhub;
 
+import android.app.Activity;
 import android.os.Bundle;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import androidx.appcompat.app.AppCompatActivity;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -20,12 +20,5 @@ public class MainActivity extends AppCompatActivity {
         
         webView.setWebViewClient(new WebViewClient());
         webView.loadUrl("http://43.119.35.237:8866");
-    }
-    
-    @Override
-    public void onBackPressed() {
-        WebView webView = (WebView) findViewById(android.R.id.content).getRootView().findViewWithTag("webview");
-        // Simple back support
-        super.onBackPressed();
     }
 }
