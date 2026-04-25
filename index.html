@@ -451,14 +451,14 @@
                         <span>Quality: ${data.quality}</span>
                         <span>Duration: ${data.duration}s</span>
                     </div>
-                    <button class="download-btn" onclick="startDownload('${data.url}', '${encodeURIComponent(data.title)}', '${data.thumbnail}')">
-                        <span>🚀</span> START DOWNLOAD
+                    <button class="download-btn" onclick="startDownload('${data.url}', '${encodeURIComponent(data.title)}', '${data.thumbnail}', ${data.is_m3u8})">
+                        <span>🚀</span> ${data.is_m3u8 ? 'MERGE & DOWNLOAD' : 'START DOWNLOAD'}
                     </button>
                 </div>
             `;
         }
 
-        function startDownload(url, title, thumb) {
+        function startDownload(url, title, thumb, is_m3u8 = false) {
             const taskId = Date.now();
             const decodedTitle = decodeURIComponent(title);
             
@@ -473,8 +473,8 @@
             // Switch to tasks view
             switchView('tasks');
 
-            // Simulate progress (Real download via proxy)
-            const downloadUrl = `${API_BASE}/api/download?video_url=${encodeURIComponent(url)}&title=${title}`;
+            // Initiate download
+            const downloadUrl = `${API_BASE}/api/download?video_url=${encodeURIComponent(url)}&title=${title}&is_m3u8=${is_m3u8}`;
             
             // We initiate the download by creating an invisible anchor
             const a = document.createElement('a');

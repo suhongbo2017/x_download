@@ -4,6 +4,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 import yt_dlp
 import os
+import shutil
+import tempfile
+import uuid
+import threading
+import time
 
 app = FastAPI()
 
@@ -67,33 +72,34 @@ async def parse_video(request: Request):
             # Refined selection logic
             formats = info.get('formats', [])
             video_url = None
+            is_m3u8 = False
             
-            # Sort formats: best resolution first
-            if formats:
-                # Filter for direct MP4 links from Twitter/X servers
-                direct_mp4s = [
+            # 1. Try to find the best direct MP4
+            direct_mp4s = [
+                f for f in formats 
+                if f.get('ext') == 'mp4' and f.get('vcodec') != 'none' and 
+                   f.get('url') and f.get('url').startswith('http') and 'm3u8' not in f.get('url')
+            ]
+            
+            if direct_mp4s:
+                direct_mp4s.sort(key=lambda f: (f.get('width', 0) or 0) * (f.get('height', 0) or 0), reverse=True)
+                video_url = direct_mp4s[0].get('url')
+                quality = f"{direct_mp4s[0].get('width', '???')}x{direct_mp4s[0].get('height', '???')}"
+            else:
+                # 2. Try to find the best m3u8 (HLS)
+                m3u8_formats = [
                     f for f in formats 
-                    if f.get('ext') == 'mp4' and 
-                       f.get('vcodec') != 'none' and 
-                       f.get('url') and 
-                       f.get('url').startswith('http') and
-                       'm3u8' not in f.get('url')
+                    if 'm3u8' in f.get('protocol', '') or f.get('ext') == 'm3u8'
                 ]
-                
-                if direct_mp4s:
-                    # Sort by resolution (width * height) descending
-                    direct_mp4s.sort(key=lambda f: (f.get('width', 0) or 0) * (f.get('height', 0) or 0), reverse=True)
-                    video_url = direct_mp4s[0].get('url')
-                    quality = f"{direct_mp4s[0].get('width', '???')}x{direct_mp4s[0].get('height', '???')}"
-                else:
-                    # If no direct MP4, take the 'url' field which yt-dlp thinks is best
-                    video_url = info.get('url')
-                    
-            if not video_url and 'entries' in info and len(info['entries']) > 0:
-                video_url = info['entries'][0].get('url')
+                if m3u8_formats:
+                    # Sort by resolution
+                    m3u8_formats.sort(key=lambda f: (f.get('width', 0) or 0) * (f.get('height', 0) or 0), reverse=True)
+                    # We pass the original URL to the downloader to let it handle merging
+                    video_url = url 
+                    is_m3u8 = True
+                    quality = f"HLS {m3u8_formats[0].get('width', '???')}x{m3u8_formats[0].get('height', '???')}"
             
             if not video_url:
-                # Fallback: check if 'url' is directly in info
                 video_url = info.get('url') or info.get('webpage_url')
             
             if not video_url:
@@ -102,7 +108,6 @@ async def parse_video(request: Request):
             title = info.get('title', 'twitter_video')
             duration = info.get('duration', 0)
             thumbnail = info.get('thumbnail', '')
-            quality = info.get('format_note', 'best')
             
             return {
                 "success": True,
@@ -111,7 +116,8 @@ async def parse_video(request: Request):
                     "url": video_url,
                     "duration": duration,
                     "thumbnail": thumbnail,
-                    "quality": quality if quality else "Best"
+                    "quality": quality if 'quality' in locals() else "Best",
+                    "is_m3u8": is_m3u8
                 }
             }
     except Exception as e:
@@ -124,31 +130,61 @@ import urllib.error
 import urllib.parse
 
 @app.get("/api/download")
-def proxy_download(video_url: str, title: str = "x_video"):
+def proxy_download(video_url: str, title: str = "x_video", is_m3u8: bool = False):
     """
-    Proxy the download to bypass CORS and force a file attachment download
+    Proxy or merge HLS then serve
     """
     try:
-        req = urllib.request.Request(video_url, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'})
-        response = urllib.request.urlopen(req)
-        
-        def stream():
-            while chunk := response.read(8192 * 4):
-                yield chunk
-                
-        # sanitize title for filename
+        # Sanitize title
         safe_title = "".join(c for c in title if c.isalnum() or c in (' ', '-', '_')).rstrip()
-        if not safe_title:
-            safe_title = "x_video"
-            
+        if not safe_title: safe_title = "x_video"
         encoded_title = urllib.parse.quote(safe_title)
+
+        if is_m3u8:
+            # Server-side merging logic
+            temp_dir = tempfile.mkdtemp()
+            out_path = os.path.join(temp_dir, f"{uuid.uuid4()}.mp4")
             
-        return StreamingResponse(
-            stream(), 
-            media_type="video/mp4", 
-            headers={"Content-Disposition": f"attachment; filename*=utf-8''{encoded_title}.mp4"}
-        )
+            ydl_opts = {
+                'format': 'best',
+                'outtmpl': out_path,
+                'quiet': True,
+                'merge_output_format': 'mp4',
+            }
+            
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([video_url])
+            
+            if not os.path.exists(out_path):
+                raise Exception("Conversion failed - file not generated")
+
+            def iter_file():
+                with open(out_path, mode="rb") as f:
+                    yield from f
+                # Cleanup after serving
+                shutil.rmtree(temp_dir, ignore_errors=True)
+
+            return StreamingResponse(
+                iter_file(),
+                media_type="video/mp4",
+                headers={"Content-Disposition": f"attachment; filename*=utf-8''{encoded_title}.mp4"}
+            )
+        else:
+            # Direct proxy for MP4
+            req = urllib.request.Request(video_url, headers={'User-Agent': 'Mozilla/5.0'})
+            response = urllib.request.urlopen(req)
+            
+            def stream():
+                while chunk := response.read(8192 * 4):
+                    yield chunk
+                    
+            return StreamingResponse(
+                stream(), 
+                media_type="video/mp4", 
+                headers={"Content-Disposition": f"attachment; filename*=utf-8''{encoded_title}.mp4"}
+            )
     except Exception as e:
+        print(f"Download error: {e}")
         raise HTTPException(status_code=400, detail=f"Download failed: {str(e)}")
 
 if __name__ == "__main__":
