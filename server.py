@@ -64,21 +64,32 @@ async def parse_video(request: Request):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(url, download=False)
             
-            # try to find the best direct mp4/http format first
+            # Refined selection logic
+            formats = info.get('formats', [])
             video_url = None
-            if 'formats' in info and len(info['formats']) > 0:
-                # filter formats that are mp4 and protocol is https/http (avoid m3u8/DASH that can't be directly downloaded)
-                direct_formats = [
-                    f for f in info['formats'] 
-                    if f.get('ext') == 'mp4' and f.get('protocol', '').startswith('http') and 'm3u8' not in f.get('protocol', '')
+            
+            # Sort formats: best resolution first
+            if formats:
+                # Filter for direct MP4 links from Twitter/X servers
+                direct_mp4s = [
+                    f for f in formats 
+                    if f.get('ext') == 'mp4' and 
+                       f.get('vcodec') != 'none' and 
+                       f.get('url') and 
+                       f.get('url').startswith('http') and
+                       'm3u8' not in f.get('url')
                 ]
-                if direct_formats:
-                    video_url = direct_formats[-1].get('url')
+                
+                if direct_mp4s:
+                    # Sort by resolution (width * height) descending
+                    direct_mp4s.sort(key=lambda f: (f.get('width', 0) or 0) * (f.get('height', 0) or 0), reverse=True)
+                    video_url = direct_mp4s[0].get('url')
+                    quality = f"{direct_mp4s[0].get('width', '???')}x{direct_mp4s[0].get('height', '???')}"
                 else:
-                    video_url = info['formats'][-1].get('url')
-            elif 'url' in info:
-                video_url = info['url']
-            elif 'entries' in info and len(info['entries']) > 0:
+                    # If no direct MP4, take the 'url' field which yt-dlp thinks is best
+                    video_url = info.get('url')
+                    
+            if not video_url and 'entries' in info and len(info['entries']) > 0:
                 video_url = info['entries'][0].get('url')
             
             if not video_url:
