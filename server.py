@@ -129,8 +129,10 @@ import urllib.request
 import urllib.error
 import urllib.parse
 
+from fastapi import BackgroundTasks
+
 @app.get("/api/download")
-def proxy_download(video_url: str, title: str = "x_video", is_m3u8: bool = False):
+def proxy_download(background_tasks: BackgroundTasks, video_url: str, title: str = "x_video", is_m3u8: bool = False):
     """
     Proxy or merge HLS then serve
     """
@@ -158,16 +160,15 @@ def proxy_download(video_url: str, title: str = "x_video", is_m3u8: bool = False
             if not os.path.exists(out_path):
                 raise Exception("Conversion failed - file not generated")
 
-            def iter_file():
-                with open(out_path, mode="rb") as f:
-                    yield from f
-                # Cleanup after serving
+            def cleanup_task():
                 shutil.rmtree(temp_dir, ignore_errors=True)
 
-            return StreamingResponse(
-                iter_file(),
+            background_tasks.add_task(cleanup_task)
+
+            return FileResponse(
+                out_path,
                 media_type="video/mp4",
-                headers={"Content-Disposition": f"attachment; filename*=utf-8''{encoded_title}.mp4"}
+                filename=f"{safe_title}.mp4"
             )
         else:
             # Direct proxy for MP4
