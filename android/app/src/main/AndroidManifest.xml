@@ -5,7 +5,8 @@
         android:allowBackup="true"
         android:label="X-HUB"
         android:supportsRtl="true"
-        android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+        android:usesCleartextTraffic="true"
+        android:theme="@style/Theme.App">
         <activity
             android:name=".MainActivity"
             android:exported="true">
